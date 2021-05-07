@@ -36,20 +36,10 @@ import org.keycloak.credential.CredentialAuthentication;
 import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
 import org.keycloak.credential.CredentialInputValidator;
+import org.keycloak.federation.kerberos.CommonKerberosConfig;
 import org.keycloak.federation.kerberos.impl.KerberosUsernamePasswordAuthenticator;
 import org.keycloak.federation.kerberos.impl.SPNEGOAuthenticator;
-import org.keycloak.models.CredentialValidationOutput;
-import org.keycloak.models.GroupModel;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.LDAPConstants;
-import org.keycloak.models.ModelDuplicateException;
-import org.keycloak.models.ModelException;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RequiredActionProviderModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserCredentialModel;
-import org.keycloak.models.UserManager;
-import org.keycloak.models.UserModel;
+import org.keycloak.models.*;
 import org.keycloak.models.cache.CachedUserModel;
 import org.keycloak.models.credential.PasswordCredentialModel;
 import org.keycloak.models.utils.DefaultRoles;
@@ -714,6 +704,22 @@ public class LDAPStorageProvider implements UserStorageProvider,
             return false; // invalid cred type
         }
     }
+    public void initKerberosCredentials(KerberosCredentialModel cred, CommonKerberosConfig kerberosConfig) {
+        if (!cred.isKerberosAuthenticated()) {
+            String spnegoToken = cred.getChallengeResponse();
+            SPNEGOAuthenticator spnegoAuthenticator = factory.createSPNEGOAuthenticator(spnegoToken, kerberosConfig);
+
+            spnegoAuthenticator.authenticate();
+            if (spnegoAuthenticator.isAuthenticated()) {
+                cred.setKerberosDelegationCredential(spnegoAuthenticator.getSerializedDelegationCredential());
+                cred.setKerberosRealm(spnegoAuthenticator.getAuthenticatedUsernameKerberosRealm());
+                cred.setKerberosUsername(spnegoAuthenticator.getAuthenticatedUsername());
+                cred.setKerberosAuthenticated(true);
+                cred.setKerberosResponseToken(spnegoAuthenticator.getResponseToken());
+            }
+        }
+    }
+
 
     @Override
     public CredentialValidationOutput authenticate(RealmModel realm, CredentialInput cred) {
@@ -721,38 +727,56 @@ public class LDAPStorageProvider implements UserStorageProvider,
         UserCredentialModel credential = (UserCredentialModel)cred;
         if (credential.getType().equals(UserCredentialModel.KERBEROS)) {
             if (kerberosConfig.isAllowKerberosAuthentication()) {
-                String spnegoToken = credential.getChallengeResponse();
-                SPNEGOAuthenticator spnegoAuthenticator = factory.createSPNEGOAuthenticator(spnegoToken, kerberosConfig);
+                logger.errorf("========================================= UserCredentialStoreManager START");
+                try {
+                    logger.errorf("========================================= UserCredentialStoreManager 2");
+                    if (!(cred instanceof KerberosCredentialModel)) return CredentialValidationOutput.failed();
+                    logger.errorf("========================================= UserCredentialStoreManager 3");
+                    KerberosCredentialModel kerberosCredentialModel = (KerberosCredentialModel) cred;
+                    logger.errorf("========================================= UserCredentialStoreManager 4");
+                    initKerberosCredentials(kerberosCredentialModel, kerberosConfig);
+                    logger.errorf("========================================= UserCredentialStoreManager 5");
 
-                spnegoAuthenticator.authenticate();
+                    Map<String, String> state = new HashMap<String, String>();
+                    logger.errorf("========================================= UserCredentialStoreManager 6");
+                    if (kerberosCredentialModel.isKerberosAuthenticated()) {
+                        logger.errorf("========================================= UserCredentialStoreManager 7");
 
-                Map<String, String> state = new HashMap<String, String>();
-                if (spnegoAuthenticator.isAuthenticated()) {
+                        String username = kerberosCredentialModel.getKerberosUsername();
+                        logger.infof("========================================= UserCredentialStoreManager 8");
+                        logger.infof("========================================= UserCredentialStoreManager %s", findOrCreateAuthenticatedUser(realm, username).getFederationLink());
 
-                    // TODO: This assumes that LDAP "uid" is equal to kerberos principal name. Like uid "hnelson" and kerberos principal "hnelson@KEYCLOAK.ORG".
-                    // Check if it's correct or if LDAP attribute for mapping kerberos principal should be available (For ApacheDS it seems to be attribute "krb5PrincipalName" but on MSAD it's likely different)
-                    String username = spnegoAuthenticator.getAuthenticatedUsername();
-                    UserModel user = findOrCreateAuthenticatedUser(realm, username);
+                        logger.errorf("========================================= UserCredentialStoreManager 10");
+                        UserModel user = findOrCreateAuthenticatedUser(realm, username);
+                        logger.errorf("========================================= UserCredentialStoreManager 11");
 
-                    if (user == null) {
-                        logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, model.getName());
-                        return CredentialValidationOutput.failed();
-                    } else {
-                        String delegationCredential = spnegoAuthenticator.getSerializedDelegationCredential();
-                        if (delegationCredential != null) {
-                            state.put(KerberosConstants.GSS_DELEGATION_CREDENTIAL, delegationCredential);
+                        if (user == null) {
+                            logger.errorf("========================================= UserCredentialStoreManager 12");
+                            logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, user.getFederationLink());
+                            return CredentialValidationOutput.failed();
+                        } else {
+                            logger.infof("========================================= UserCredentialStoreManager 13");
+                            String delegationCredential = kerberosCredentialModel.getKerberosDelegationCredential();
+                            if (delegationCredential != null) {
+                                logger.errorf("========================================= UserCredentialStoreManager 14");
+                                state.put(KerberosConstants.GSS_DELEGATION_CREDENTIAL, delegationCredential);
+                            }
+
+                            return new CredentialValidationOutput(user, CredentialValidationOutput.Status.AUTHENTICATED, state);
                         }
-
-                        return new CredentialValidationOutput(user, CredentialValidationOutput.Status.AUTHENTICATED, state);
+                    } else if (kerberosCredentialModel.getKerberosResponseToken() != null) {
+                        // Case when SPNEGO handshake requires multiple steps
+                        logger.errorf("========================================= UserCredentialStoreManager 15");
+                        logger.tracef("SPNEGO Handshake will continue");
+                        state.put(KerberosConstants.RESPONSE_TOKEN, kerberosCredentialModel.getKerberosResponseToken());
+                        return new CredentialValidationOutput(null, CredentialValidationOutput.Status.CONTINUE, state);
+                    } else {
+                        logger.errorf("========================================= UserCredentialStoreManager 16");
+                        logger.tracef("SPNEGO Handshake not successful");
+                        return CredentialValidationOutput.failed();
                     }
-                }  else if (spnegoAuthenticator.getResponseToken() != null) {
-                    // Case when SPNEGO handshake requires multiple steps
-                    logger.tracef("SPNEGO Handshake will continue");
-                    state.put(KerberosConstants.RESPONSE_TOKEN, spnegoAuthenticator.getResponseToken());
-                    return new CredentialValidationOutput(null, CredentialValidationOutput.Status.CONTINUE, state);
-                } else {
-                    logger.tracef("SPNEGO Handshake not successful");
-                    return CredentialValidationOutput.failed();
+                } finally {
+                    logger.errorf("========================================= UserCredentialStoreManager END");
                 }
             }
         }

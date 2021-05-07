@@ -16,8 +16,10 @@
  */
 package org.keycloak.credential;
 
+import org.jboss.logging.Logger;
 import org.keycloak.common.util.reflections.Types;
 import org.keycloak.models.CredentialValidationOutput;
+import org.keycloak.models.CredentialValidationOutput.Status;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserCredentialManager;
@@ -43,6 +45,7 @@ import java.util.stream.Stream;
  */
 public class UserCredentialStoreManager extends AbstractStorageManager<UserStorageProvider, UserStorageProviderModel>
         implements UserCredentialManager.Streams, OnUserCache {
+    private Logger logger = Logger.getLogger(this.getClass());
 
     public UserCredentialStoreManager(KeycloakSession session) {
         super(session, UserStorageProviderFactory.class, UserStorageProvider.class, UserStorageProviderModel::new, "user");
@@ -277,13 +280,18 @@ public class UserCredentialStoreManager extends AbstractStorageManager<UserStora
     public CredentialValidationOutput authenticate(KeycloakSession session, RealmModel realm, CredentialInput input) {
         Stream<CredentialAuthentication> credentialAuthenticationStream = getEnabledStorageProviders(realm, CredentialAuthentication.class);
         credentialAuthenticationStream = Stream.concat(credentialAuthenticationStream,
-                getCredentialProviders(session, CredentialAuthentication.class));
+                getCredentialProviders(session, CredentialAuthentication.class)).filter(credentialAuthentication -> credentialAuthentication.supportsCredentialAuthenticationFor(input.getType()));
 
-        return credentialAuthenticationStream
-                .filter(credentialAuthentication -> credentialAuthentication.supportsCredentialAuthenticationFor(input.getType()))
+        List<CredentialAuthentication> credentialAuthenticationList = credentialAuthenticationStream.collect(Collectors.toList());
+        if (credentialAuthenticationList.isEmpty())
+            return null;
+
+        return credentialAuthenticationList.stream()
                 .map(credentialAuthentication -> credentialAuthentication.authenticate(realm, input))
-                .findFirst().orElse(null);
+                .filter(credentialValidationOutput -> Status.AUTHENTICATED.equals(credentialValidationOutput.getAuthStatus()) || Status.CONTINUE.equals(credentialValidationOutput.getAuthStatus()))
+                .findFirst().orElse(CredentialValidationOutput.failed());
     }
+
 
     @Override
     public void onCache(RealmModel realm, CachedUserModel user, UserModel delegate) {

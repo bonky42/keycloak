@@ -118,6 +118,10 @@ public class SPNEGOAuthenticator {
         return username;
     }
 
+    public String getAuthenticatedUsernameKerberosRealm() {
+        String[] tokens = authenticatedKerberosPrincipal.split("@");
+        return tokens.length > 1 ? tokens[1] : "";
+    }
 
     private class AcceptSecContext implements PrivilegedExceptionAction<Boolean> {
 
@@ -156,7 +160,6 @@ public class SPNEGOAuthenticator {
         }
 
     }
-
 
     protected GSSContext establishContext() throws GSSException, IOException {
         GSSManager manager = GSSManager.getInstance();
