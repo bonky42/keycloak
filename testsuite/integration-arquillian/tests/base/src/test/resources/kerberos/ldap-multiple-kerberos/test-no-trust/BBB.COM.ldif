@@ -1,0 +1,77 @@
+dn: dc=bbb,dc=com
+objectclass: dcObject
+objectclass: organization
+o: com
+dc: bbb
+
+dn: ou=People,dc=bbb,dc=com
+objectClass: organizationalUnit
+objectClass: top
+ou: People
+
+dn: uid=krbtgt,ou=People,dc=bbb,dc=com
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+objectClass: krb5principal
+objectClass: krb5kdcentry
+cn: KDC Service
+sn: Service
+uid: krbtgt
+userPassword: secret
+krb5PrincipalName: krbtgt/BBB.COM@BBB.COM
+krb5KeyVersionNumber: 0
+
+dn: uid=ldap,ou=People,dc=bbb,dc=com
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+objectClass: krb5principal
+objectClass: krb5kdcentry
+cn: LDAP
+sn: Service
+uid: ldap
+userPassword: randall
+krb5PrincipalName: ${ldapSaslPrincipal}
+krb5KeyVersionNumber: 0
+
+dn: uid=HTTP,ou=People,dc=bbb,dc=com
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+objectClass: krb5principal
+objectClass: krb5kdcentry
+cn: HTTP
+sn: Service
+uid: HTTP
+userPassword: httppwd
+krb5PrincipalName: HTTP/${hostname}@BBB.COM
+krb5KeyVersionNumber: 0
+
+dn: uid=user1,ou=People,dc=bbb,dc=com
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+objectClass: krb5principal
+objectClass: krb5kdcentry
+cn: user1
+sn: BBB
+mail: user1@bbb.com
+uid: user1
+userPassword: secret
+krb5PrincipalName: user1@BBB.COM
+krb5KeyVersionNumber: 0
+
+dn: uid=user2,ou=People,dc=bbb,dc=com
+objectClass: top
+objectClass: person
+objectClass: inetOrgPerson
+objectClass: krb5principal
+objectClass: krb5kdcentry
+cn: user2
+sn: BBB
+mail: user2@bbb.com
+uid: user2
+userPassword: secret
+krb5PrincipalName: user2@BBB.COM
+krb5KeyVersionNumber: 0
