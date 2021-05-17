@@ -119,7 +119,7 @@ public class UserCredentialModel implements CredentialInput {
     }
 
     public static UserCredentialModel kerberos(String token) {
-        return new UserCredentialModel("", KERBEROS, token);
+        return new KerberosCredentialModel("", KERBEROS, token);
     }
 
     public static UserCredentialModel generateSecret() {

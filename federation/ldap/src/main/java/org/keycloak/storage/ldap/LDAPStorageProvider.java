@@ -743,18 +743,16 @@ public class LDAPStorageProvider implements UserStorageProvider,
                         logger.errorf("========================================= UserCredentialStoreManager 7");
 
                         String username = kerberosCredentialModel.getKerberosUsername();
-                        logger.infof("========================================= UserCredentialStoreManager 8");
-                        logger.infof("========================================= UserCredentialStoreManager %s", findOrCreateAuthenticatedUser(realm, username).getFederationLink());
-
                         logger.errorf("========================================= UserCredentialStoreManager 10");
                         UserModel user = findOrCreateAuthenticatedUser(realm, username);
                         logger.errorf("========================================= UserCredentialStoreManager 11");
 
                         if (user == null) {
                             logger.errorf("========================================= UserCredentialStoreManager 12");
-                            logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, user.getFederationLink());
+                            logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, model.getName());
                             return CredentialValidationOutput.failed();
                         } else {
+                            logger.infof("========================================= UserCredentialStoreManager %s", findOrCreateAuthenticatedUser(realm, username).getFederationLink());
                             logger.infof("========================================= UserCredentialStoreManager 13");
                             String delegationCredential = kerberosCredentialModel.getKerberosDelegationCredential();
                             if (delegationCredential != null) {

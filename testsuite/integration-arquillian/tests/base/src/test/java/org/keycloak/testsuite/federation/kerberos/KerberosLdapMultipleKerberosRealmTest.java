@@ -23,7 +23,9 @@ import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 import org.keycloak.federation.kerberos.CommonKerberosConfig;
+import org.keycloak.representations.AccessToken;
 import org.keycloak.storage.ldap.kerberos.LDAPProviderKerberosConfig;
+import org.keycloak.testsuite.Assert;
 import org.keycloak.testsuite.KerberosEmbeddedServer;
 import org.keycloak.testsuite.util.KerberosRule;
 
@@ -58,17 +60,34 @@ public class KerberosLdapMultipleKerberosRealmTest extends AbstractKerberosMulti
         return kerberosRuleKeycloakGroupA;
     }
 
-    private KerberosRule currentRule;
+    private KerberosRule currentRule = kerberosRuleKeycloakGroupA;
 
     @Override
     protected CommonKerberosConfig getKerberosConfig() {
+        System.out.println("------------------------------------- getKerberosConfig");
         return new LDAPProviderKerberosConfig(getUserStorageConfiguration(currentRule));
     }
 
     @Test
     public void test01SpnegoLoginUser1A() throws Exception {
-        currentRule = kerberosRuleKeycloakGroupA;
-        assertSuccessfulSpnegoLogin("user1A@KEYCLOAK.ORG", "user1A", "secret");
-        assertUser("user1A", "user1A@keycloak.org", null, null, false);
+        System.out.println("------------------------------------- test01SpnegoLoginUser1A");
+        assertSuccessfulSpnegoLogin("user1A@KEYCLOAK.ORG", "user1a", "secret");
+        assertUser("user1a", "user1a@keycloak.org", null, "groupA", false);
     }
+
+    @Test
+    public void test02SpnegoLoginUser1B() throws Exception {
+        System.out.println("------------------------------------- test01SpnegoLoginUser1A");
+        assertSuccessfulSpnegoLogin("user1B@KEYCLOAK.ORG", "user1b", "secret");
+        assertUser("user1b", "user1b@keycloak.org", null, "groupB", false);
+    }
+
+    @Test
+    public void test03SpnegoLoginKC2() throws Exception {
+        testingClient.testing().ldap("test").removeLDAPUser("krbtgt2");
+
+        AccessToken token = assertSuccessfulSpnegoLogin("user1C@KC2.COM", "user1c", "secret");
+        assertUser("user1c", "user1c@kc2.com", null, "groupC", false);
+    }
+
 }
