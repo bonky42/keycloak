@@ -137,7 +137,7 @@ objectClass: krb5principal
 objectClass: krb5kdcentry
 cn: user1A
 sn: groupA
-mail: user1A@aaa.com
+mail: user1A@keycloak.org
 uid: user1A
 userPassword: secret
 krb5PrincipalName: user1A@KEYCLOAK.ORG
@@ -151,7 +151,7 @@ objectClass: krb5principal
 objectClass: krb5kdcentry
 cn: user2A
 sn: groupA
-mail: user2A@aaa.com
+mail: user2A@keycloak.org
 uid: user2A
 userPassword: secret
 krb5PrincipalName: user2A@KEYCLOAK.ORG
@@ -165,7 +165,7 @@ objectClass: krb5principal
 objectClass: krb5kdcentry
 cn: user1B
 sn: groupB
-mail: user1B@aaa.com
+mail: user1B@keycloak.org
 uid: user1B
 userPassword: secret
 krb5PrincipalName: user1B@KEYCLOAK.ORG
@@ -179,7 +179,7 @@ objectClass: krb5principal
 objectClass: krb5kdcentry
 cn: user2B
 sn: groupB
-mail: user2B@aaa.com
+mail: user2B@keycloak.org
 uid: user2B
 userPassword: secret
 krb5PrincipalName: user2B@KEYCLOAK.ORG
