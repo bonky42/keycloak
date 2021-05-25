@@ -720,6 +720,13 @@ public class LDAPStorageProvider implements UserStorageProvider,
         }
     }
 
+    protected boolean isExpectedKerberosRealm(String kerberosRealm) {
+        if (kerberosRealm == null || "".equals(kerberosConfig.getKerberosRealm().trim())) {
+            // assuming no check of kerberos realm
+            return true;
+        }
+        return kerberosConfig.getKerberosRealm().equals(kerberosRealm);
+    }
 
     @Override
     public CredentialValidationOutput authenticate(RealmModel realm, CredentialInput cred) {
@@ -727,54 +734,38 @@ public class LDAPStorageProvider implements UserStorageProvider,
         UserCredentialModel credential = (UserCredentialModel)cred;
         if (credential.getType().equals(UserCredentialModel.KERBEROS)) {
             if (kerberosConfig.isAllowKerberosAuthentication()) {
-                logger.errorf("========================================= UserCredentialStoreManager START");
-                try {
-                    logger.errorf("========================================= UserCredentialStoreManager 2");
-                    if (!(cred instanceof KerberosCredentialModel)) return CredentialValidationOutput.failed();
-                    logger.errorf("========================================= UserCredentialStoreManager 3");
-                    KerberosCredentialModel kerberosCredentialModel = (KerberosCredentialModel) cred;
-                    logger.errorf("========================================= UserCredentialStoreManager 4");
-                    initKerberosCredentials(kerberosCredentialModel, kerberosConfig);
-                    logger.errorf("========================================= UserCredentialStoreManager 5");
+                if (!(cred instanceof KerberosCredentialModel)) return CredentialValidationOutput.failed();
+                KerberosCredentialModel kerberosCredentialModel = (KerberosCredentialModel) cred;
+                initKerberosCredentials(kerberosCredentialModel, kerberosConfig);
 
-                    Map<String, String> state = new HashMap<String, String>();
-                    logger.errorf("========================================= UserCredentialStoreManager 6");
-                    if (kerberosCredentialModel.isKerberosAuthenticated()) {
-                        logger.errorf("========================================= UserCredentialStoreManager 7");
-
-                        String username = kerberosCredentialModel.getKerberosUsername();
-                        logger.errorf("========================================= UserCredentialStoreManager 10");
-                        UserModel user = findOrCreateAuthenticatedUser(realm, username);
-                        logger.errorf("========================================= UserCredentialStoreManager 11");
-
-                        if (user == null) {
-                            logger.errorf("========================================= UserCredentialStoreManager 12");
-                            logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, model.getName());
-                            return CredentialValidationOutput.failed();
-                        } else {
-                            logger.infof("========================================= UserCredentialStoreManager %s", findOrCreateAuthenticatedUser(realm, username).getFederationLink());
-                            logger.infof("========================================= UserCredentialStoreManager 13");
-                            String delegationCredential = kerberosCredentialModel.getKerberosDelegationCredential();
-                            if (delegationCredential != null) {
-                                logger.errorf("========================================= UserCredentialStoreManager 14");
-                                state.put(KerberosConstants.GSS_DELEGATION_CREDENTIAL, delegationCredential);
-                            }
-
-                            return new CredentialValidationOutput(user, CredentialValidationOutput.Status.AUTHENTICATED, state);
-                        }
-                    } else if (kerberosCredentialModel.getKerberosResponseToken() != null) {
-                        // Case when SPNEGO handshake requires multiple steps
-                        logger.errorf("========================================= UserCredentialStoreManager 15");
-                        logger.tracef("SPNEGO Handshake will continue");
-                        state.put(KerberosConstants.RESPONSE_TOKEN, kerberosCredentialModel.getKerberosResponseToken());
-                        return new CredentialValidationOutput(null, CredentialValidationOutput.Status.CONTINUE, state);
-                    } else {
-                        logger.errorf("========================================= UserCredentialStoreManager 16");
-                        logger.tracef("SPNEGO Handshake not successful");
+                Map<String, String> state = new HashMap<String, String>();
+                if (kerberosCredentialModel.isKerberosAuthenticated()) {
+                    String username = kerberosCredentialModel.getKerberosUsername();
+                    if (!isExpectedKerberosRealm(((KerberosCredentialModel) cred).getKerberosRealm())) {
+                        logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but not the expected realm [%s], got %s ", username, kerberosConfig.getKerberosRealm(), ((KerberosCredentialModel) cred).getKerberosRealm());
                         return CredentialValidationOutput.failed();
                     }
-                } finally {
-                    logger.errorf("========================================= UserCredentialStoreManager END");
+                    UserModel user = findOrCreateAuthenticatedUser(realm, username);
+
+                    if (user == null) {
+                        logger.warnf("Kerberos/SPNEGO authentication succeeded with username [%s], but couldn't find or create user with federation provider [%s]", username, model.getName());
+                        return CredentialValidationOutput.failed();
+                    } else {
+                        String delegationCredential = kerberosCredentialModel.getKerberosDelegationCredential();
+                        if (delegationCredential != null) {
+                            state.put(KerberosConstants.GSS_DELEGATION_CREDENTIAL, delegationCredential);
+                        }
+
+                        return new CredentialValidationOutput(user, CredentialValidationOutput.Status.AUTHENTICATED, state);
+                    }
+                } else if (kerberosCredentialModel.getKerberosResponseToken() != null) {
+                    // Case when SPNEGO handshake requires multiple steps
+                    logger.tracef("SPNEGO Handshake will continue");
+                    state.put(KerberosConstants.RESPONSE_TOKEN, kerberosCredentialModel.getKerberosResponseToken());
+                    return new CredentialValidationOutput(null, CredentialValidationOutput.Status.CONTINUE, state);
+                } else {
+                    logger.tracef("SPNEGO Handshake not successful");
+                    return CredentialValidationOutput.failed();
                 }
             }
         }

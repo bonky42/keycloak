@@ -87,26 +87,6 @@ import static org.keycloak.testsuite.admin.AbstractAdminTest.loadJson;
 @AuthServerContainerExclude(AuthServer.REMOTE)
 public abstract class AbstractKerberosSingleUserStorageTest extends AbstractKerberosTest {
 
-    protected KeycloakSPNegoSchemeFactory spnegoSchemeFactory;
-
-    protected ResteasyClient client;
-
-    @Page
-    protected LoginPage loginPage;
-
-    @Rule
-    public AssertEvents events = new AssertEvents(this);
-
-    @Page
-    protected AccountPasswordPage changePasswordPage;
-
-    protected abstract KerberosRule getKerberosRule();
-
-    protected abstract CommonKerberosConfig getKerberosConfig();
-
-    protected abstract ComponentRepresentation getUserStorageConfiguration();
-
-
     protected ComponentRepresentation getUserStorageConfiguration(String providerName, String providerId) {
         Map<String,String> kerberosConfig = getKerberosRule().getConfig();
         MultivaluedHashMap<String, String> config = toComponentConfig(kerberosConfig);
@@ -125,18 +105,6 @@ public abstract class AbstractKerberosSingleUserStorageTest extends AbstractKerb
     }
 
 
-    @Override
-    public void addTestRealms(List<RealmRepresentation> testRealms) {
-        RealmRepresentation realmRep = loadJson(getClass().getResourceAsStream("/kerberos/kerberosrealm.json"), RealmRepresentation.class);
-        testRealms.add(realmRep);
-    }
-
-    @Override
-    public RealmResource testRealmResource() {
-        return adminClient.realm("test");
-    }
-
-
     @Before
     @Override
     public void beforeAbstractKeycloakTest() throws Exception {
@@ -146,19 +114,6 @@ public abstract class AbstractKerberosSingleUserStorageTest extends AbstractKerb
         Response resp = testRealmResource().components().add(rep);
         getCleanup().addComponentId(ApiUtil.getCreatedId(resp));
         resp.close();
-    }
-
-    @After
-    @Override
-    public void afterAbstractKeycloakTest() {
-        cleanupApacheHttpClient();
-
-        super.afterAbstractKeycloakTest();
-    }
-
-    private void cleanupApacheHttpClient() {
-        client.close();
-        client = null;
     }
 
     protected String invokeLdap(GSSCredential gssCredential, String username) throws NamingException {

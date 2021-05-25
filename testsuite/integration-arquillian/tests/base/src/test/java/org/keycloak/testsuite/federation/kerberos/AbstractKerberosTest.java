@@ -50,6 +50,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.keycloak.OAuth2Constants;
+import org.keycloak.OAuthErrorException;
 import org.keycloak.adapters.HttpClientBuilder;
 import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.authentication.authenticators.browser.SpnegoAuthenticatorFactory;
@@ -158,8 +159,18 @@ public abstract class AbstractKerberosTest extends AbstractAuthTest {
 //    }
 
 
+    protected void assertFailedSpnegoLogin(String loginUsername, String password) throws Exception {
+        assertFailedSpnegoLogin("kerberos-app", loginUsername, password);
+    }
+
     protected AccessToken assertSuccessfulSpnegoLogin(String loginUsername, String expectedUsername, String password) throws Exception {
         return assertSuccessfulSpnegoLogin("kerberos-app", loginUsername, expectedUsername, password);
+    }
+
+    protected void assertFailedSpnegoLogin(String clientId, String loginUsername, String password) throws Exception {
+        oauth.clientId(clientId);
+        Response spnegoResponse = spnegoLogin(loginUsername, password);
+        Assert.assertEquals(200, spnegoResponse.getStatus()); // we are back to the login
     }
 
     protected AccessToken assertSuccessfulSpnegoLogin(String clientId, String loginUsername, String expectedUsername, String password) throws Exception {

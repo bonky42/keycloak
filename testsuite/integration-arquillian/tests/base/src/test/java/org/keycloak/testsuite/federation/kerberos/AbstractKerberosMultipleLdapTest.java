@@ -17,66 +17,23 @@
 
 package org.keycloak.testsuite.federation.kerberos;
 
-import org.apache.http.NameValuePair;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.client.config.AuthSchemes;
-import org.apache.http.client.utils.URLEncodedUtils;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.ietf.jgss.GSSCredential;
-import org.jboss.arquillian.graphene.page.Page;
-import org.jboss.resteasy.client.jaxrs.ResteasyClient;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
-import org.jboss.resteasy.client.jaxrs.engines.ApacheHttpClient4Engine;
-import org.junit.After;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Before;
-import org.junit.Rule;
-import org.keycloak.OAuth2Constants;
-import org.keycloak.adapters.HttpClientBuilder;
-import org.keycloak.admin.client.resource.RealmResource;
-import org.keycloak.authentication.authenticators.browser.SpnegoAuthenticatorFactory;
+import org.keycloak.common.constants.KerberosConstants;
 import org.keycloak.common.util.MultivaluedHashMap;
-import org.keycloak.events.Details;
-import org.keycloak.federation.kerberos.CommonKerberosConfig;
-import org.keycloak.models.AuthenticationExecutionModel;
-import org.keycloak.models.LDAPConstants;
-import org.keycloak.models.UserModel;
-import org.keycloak.models.utils.DefaultAuthenticationFlows;
 import org.keycloak.models.utils.ModelToRepresentation;
-import org.keycloak.representations.AccessToken;
-import org.keycloak.representations.idm.AuthenticationExecutionInfoRepresentation;
 import org.keycloak.representations.idm.ComponentRepresentation;
-import org.keycloak.representations.idm.RealmRepresentation;
-import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.UserStorageProviderModel;
 import org.keycloak.storage.ldap.LDAPStorageProviderFactory;
-import org.keycloak.testsuite.AbstractAuthTest;
-import org.keycloak.testsuite.Assert;
-import org.keycloak.testsuite.AssertEvents;
 import org.keycloak.testsuite.admin.ApiUtil;
-import org.keycloak.testsuite.arquillian.AuthServerTestEnricher;
 import org.keycloak.testsuite.arquillian.annotation.AuthServerContainerExclude;
 import org.keycloak.testsuite.arquillian.annotation.AuthServerContainerExclude.AuthServer;
-import org.keycloak.testsuite.auth.page.AuthRealm;
-import org.keycloak.testsuite.pages.AccountPasswordPage;
-import org.keycloak.testsuite.pages.LoginPage;
 import org.keycloak.testsuite.util.KerberosRule;
 import org.keycloak.testsuite.util.LDAPTestConfiguration;
-import org.keycloak.testsuite.util.OAuthClient;
-import org.keycloak.testsuite.util.TestEventsLogger;
 
-import javax.naming.Context;
-import javax.naming.NamingException;
-import javax.naming.directory.Attributes;
-import javax.naming.directory.DirContext;
-import javax.naming.directory.InitialDirContext;
-import javax.security.sasl.Sasl;
 import javax.ws.rs.core.Response;
-import java.net.URI;
-import java.security.Principal;
 import java.util.*;
-import java.util.function.Consumer;
 
 import static org.keycloak.testsuite.admin.AbstractAdminTest.loadJson;
 
@@ -96,6 +53,23 @@ public abstract class AbstractKerberosMultipleLdapTest extends AbstractKerberosT
 
 
     protected abstract List<KerberosRule> getUserStoragesConfig();
+
+    protected void changeKerberosExpectedRealm(String userStorageName, String expectedRealm) {
+        List<ComponentRepresentation> userStorages = testRealmResource().components().query(testRealmResource().toRepresentation().getId(), UserStorageProvider.class.getCanonicalName());
+        ComponentRepresentation userStorage = null;
+        for (ComponentRepresentation cr: userStorages) {
+            if (userStorageName.equals(cr.getName())) {
+                userStorage = cr;
+                break;
+            }
+        }
+        if (StringUtils.isEmpty(expectedRealm)) {
+            userStorage.getConfig().remove(KerberosConstants.KERBEROS_REALM);
+        } else {
+            userStorage.getConfig().putSingle(KerberosConstants.KERBEROS_REALM, expectedRealm);
+        }
+        testRealmResource().components().component(userStorage.getId()).update(userStorage);
+    }
 
     protected ComponentRepresentation getUserStorageConfiguration(KerberosRule kRule) {
         Map<String,String> kerberosConfig = kRule.getConfig();
@@ -120,8 +94,6 @@ public abstract class AbstractKerberosMultipleLdapTest extends AbstractKerberosT
         super.beforeAbstractKeycloakTest();
         for (KerberosRule kRule: getUserStoragesConfig()) {
             ComponentRepresentation rep = getUserStorageConfiguration(kRule);
-            System.out.println(testRealmResource());
-            System.out.println(testRealmResource().components());
             Response resp = testRealmResource().components().add(rep);
             getCleanup().addComponentId(ApiUtil.getCreatedId(resp));
             resp.close();
